@@ -1106,7 +1106,6 @@ def time_shift(
         >>> pf.plot.time(shifted, ax=axs[1])
         >>> axs[0].set_title('Original signals')
         >>> axs[1].set_title('Shifted signals')
-        >>> plt.tight_layout()
 
     Perform a linear time shift instead and pad with NaNs
 
@@ -1127,7 +1126,6 @@ def time_shift(
         >>> pf.plot.time(shifted, ax=axs[1])
         >>> axs[0].set_title('Original signals')
         >>> axs[1].set_title('Shifted signals')
-        >>> plt.tight_layout()
 
     """
     if mode not in ["linear", "cyclic"]:
@@ -1596,7 +1594,6 @@ def convolve(signal1, signal2, mode='full', method='overlap_add'):
         >>>     ax[1].set_title('Convolution Result')
         >>>     ax[1].set_ylim(-1.1, 1.1)
         >>>     ax[1].legend()
-        >>>     fig.tight_layout()
 
 
     """

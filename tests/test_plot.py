@@ -553,7 +553,6 @@ def test_title_style(style, handsome_signal):
     ax = pf.plot.freq(handsome_signal, style=style)
     fig.suptitle('Fig-Title')
     ax.set_title('Ax-Title')
-    fig.tight_layout()
     save_and_compare(create_baseline, baseline_path, output_path, filename,
                      file_type, compare_output)
     plt.close('all')
