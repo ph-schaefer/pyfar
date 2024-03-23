@@ -12,6 +12,7 @@ import deepdiff
 import numpy as np
 import pyfar.dsp.fft as fft
 from typing import Callable
+from pyfar.classes.warnings import PyfarDeprecationWarning
 
 
 class _Audio():
@@ -25,7 +26,7 @@ class _Audio():
     # (e.g. __rmul__)
     __array_priority__ = 1.0
 
-    def __init__(self, domain, comment=None):
+    def __init__(self, domain, comment=""):
 
         # initialize valid parameter spaces
         self._VALID_DOMAINS = ["time", "freq"]
@@ -94,10 +95,51 @@ class _Audio():
                 newshape + (length_last_dimension, ))
         except ValueError:
             if np.prod(newshape) != np.prod(self.cshape):
-                raise ValueError((f"Can not reshape audio object of cshape "
+                raise ValueError((f"Cannot reshape audio object of cshape "
                                   f"{self.cshape} to {newshape}"))
 
         return reshaped
+
+    def transpose(self, *axes):
+        """Transpose time/frequency data and return copy of the audio object.
+
+        Parameters
+        ----------
+        caxes : empty, ``None``, iterable of ints, or n ints
+            Define how the :py:mod:` caxes <pyfar._concepts.audio_classes>`
+            are ordered in the transposed audio object.
+            Note that the last dimension of the data in the audio object
+            always contains the time samples or frequency bins and can not
+            be transposed.
+
+            empty (default) or ``None``
+                reverses the order of ``self.caxes``.
+            iterable of ints
+                `i` in the `j`-th place of the interable means
+                that the `i`-th caxis becomes transposed object's `j`-th caxis.
+            n ints
+                same as 'iterable of ints'.
+        """
+        if hasattr(axes, '__iter__'):
+            axes = axes[0] if len(axes) == 1 else axes
+        if axes is None or len(axes) == 0:
+            axes = tuple(range(len(self.cshape)))[::-1]
+        else:
+            assert all([a > -len(self.cshape) - 1 for a in axes]), \
+                "Negative axes index out of bounds."
+            axes = tuple([a % len(self.cshape) if a < 0 else a for a in axes])
+
+        # throw exception before deepcopy
+        np.empty(np.ones(len(self.cshape), dtype=int)).transpose(axes)
+        transposed = deepcopy(self)
+        transposed._data = transposed._data.transpose(*axes, len(self.cshape))
+
+        return transposed
+
+    @property
+    def T(self):
+        """Shorthand for `Signal.transpose()`."""
+        return self.transpose()
 
     def flatten(self):
         """Return flattened copy of the audio object.
@@ -127,7 +169,10 @@ class _Audio():
     @comment.setter
     def comment(self, value):
         """Set comment."""
-        self._comment = 'none' if value is None else str(value)
+        if not isinstance(value, str):
+            raise TypeError("comment has to be of type string.")
+        else:
+            self._comment = value
 
     def copy(self):
         """Return a copy of the audio object."""
@@ -188,7 +233,7 @@ class TimeData(_Audio):
     to frequency domain, i.e., non-equidistant samples.
 
     """
-    def __init__(self, data, times, comment=None):
+    def __init__(self, data, times, comment=""):
         """Create TimeData object with data, and times.
 
         Parameters
@@ -201,8 +246,10 @@ class TimeData(_Audio):
         times : array, double
             Times in seconds at which the data is sampled. The number of times
             must match the `size` of the last dimension of `data`.
-        comment : str, optional
-            A comment related to `data`. The default is ``'none'``.
+        comment : str
+            A comment related to `data`. The default is ``''``, which
+            initializes an empty string.
+
         """
 
         _Audio.__init__(self, 'time', comment)
@@ -353,7 +400,7 @@ class FrequencyData(_Audio):
     incomplete spectra.
 
     """
-    def __init__(self, data, frequencies, comment=None):
+    def __init__(self, data, frequencies, comment=""):
         """Create FrequencyData with data, and frequencies.
 
         Parameters
@@ -367,7 +414,9 @@ class FrequencyData(_Audio):
             Frequencies of the data in Hz. The number of frequencies must match
             the size of the last dimension of data.
         comment : str, optional
-            A comment related to the data. The default is ``'none'``.
+            A comment related to the data. The default is ``""``, which
+            initializes an empty string.
+
 
         Notes
         -----
@@ -541,7 +590,7 @@ class Signal(FrequencyData, TimeData):
             n_samples=None,
             domain='time',
             fft_norm='none',
-            comment=None):
+            comment=""):
         """Create Signal with data, and sampling rate.
 
         Parameters
@@ -568,7 +617,9 @@ class Signal(FrequencyData, TimeData):
             for more information. The default is ``'none'``, which is typically
             used for energy signals, such as impulse responses.
         comment : str
-            A comment related to `data`. The default is ``None``.
+            A comment related to `data`. The default is ``""``, which
+            initializes an empty string.
+
 
         References
         ----------
@@ -603,10 +654,10 @@ class Signal(FrequencyData, TimeData):
         elif domain == 'freq':
             # check and set n_samples
             if n_samples is None:
+                n_samples = max(1, (data.shape[-1] - 1)*2)
                 warnings.warn(
-                    "Number of time samples not given, assuming an even "
-                    "number of samples from the number of frequency bins.")
-                n_samples = (data.shape[-1] - 1)*2
+                    f"Number of samples not given, assuming {n_samples} "
+                    f"samples from {data.shape[-1]} frequency bins.")
             elif n_samples > 2 * data.shape[-1] - 1:
                 raise ValueError(("n_samples can not be larger than "
                                   "2 * data.shape[-1] - 2"))
@@ -643,24 +694,7 @@ class Signal(FrequencyData, TimeData):
     @freq.setter
     def freq(self, value):
         """Set the normalized frequency domain data."""
-        # check data type
-        data = np.atleast_2d(np.asarray(value))
-        if data.dtype.kind not in ["i", "f", "c"]:
-            raise ValueError((f"frequency data is {data.dtype} must be int, "
-                              "float, or complex"))
-        # Check n_samples
-        if data.shape[-1] != self.n_bins:
-            warnings.warn(UserWarning((
-                "Number of frequency bins changed, assuming an even "
-                "number of samples from the number of frequency bins.")))
-            self._n_samples = (data.shape[-1] - 1)*2
-        # set domain
-        self._domain = 'freq'
-        # remove normalization
-        data_denorm = fft.normalization(
-                data, self._n_samples, self._sampling_rate,
-                self._fft_norm, inverse=True)
-        self._data = data_denorm.astype(complex)
+        self._freq(value, raw=False)
 
     @property
     def freq_raw(self):
@@ -678,17 +712,28 @@ class Signal(FrequencyData, TimeData):
     @freq_raw.setter
     def freq_raw(self, value):
         """Set the frequency domain data without normalization."""
+        self._freq(value, raw=True)
+
+    def _freq(self, value, raw):
+        """Set the frequency domain data."""
+        # check data type
         data = np.atleast_2d(np.asarray(value))
         if data.dtype.kind not in ["i", "f", "c"]:
             raise ValueError((f"frequency data is {data.dtype} must be int, "
                               "float, or complex"))
         # Check n_samples
         if data.shape[-1] != self.n_bins:
-            warnings.warn(UserWarning((
-                "Number of frequency bins changed, assuming an even "
-                "number of samples from the number of frequency bins.")))
-            self._n_samples = (data.shape[-1] - 1)*2
+            self._n_samples = max(1, (data.shape[-1] - 1)*2)
+            warnings.warn(
+                f"Number of samples not given, assuming {self.n_samples} "
+                f"samples from {data.shape[-1]} frequency bins.")
+        # set domain
         self._domain = 'freq'
+        if not raw:
+            # remove normalization
+            data = fft.normalization(
+                    data, self._n_samples, self._sampling_rate,
+                    self._fft_norm, inverse=True)
         self._data = data.astype(complex)
 
     @_Audio.domain.setter
@@ -820,6 +865,9 @@ class Signal(FrequencyData, TimeData):
     def __len__(self):
         """Length of the object which is the number of samples stored.
         """
+        warnings.warn(
+            ("len(Signal) will be deprecated in pyfar 0.8.0 "
+             "Use Signal.n_samples instead"), PyfarDeprecationWarning)
         return self.n_samples
 
     def __iter__(self):

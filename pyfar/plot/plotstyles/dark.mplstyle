@@ -67,6 +67,11 @@ figure.edgecolor              : none         ## figure edgecolor
 figure.titleweight            : bold          ## weight of the figure title
 figure.constrained_layout.use : True
 
+#### Figure layout
+#### (tight and constrained layout are not compatible. Only one can be used)
+figure.autolayout: False            ## use `tight_layout`
+figure.constrained_layout.use: True ## use `constrained_layout`
+
 #### SAVING FIGURES
 savefig.facecolor   : [.1,.1,.1]    ## figure facecolor when saving
 savefig.edgecolor   : none    ## figure edgecolor when saving
@@ -74,4 +79,3 @@ savefig.edgecolor   : none    ## figure edgecolor when saving
 
 #### IMAGES
 image.cmap:     magma      # colormap for 2D plots
-

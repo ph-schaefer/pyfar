@@ -15,19 +15,11 @@ Quick listening is, e.g., possible with `sounddevice
 """
 import os
 import numpy as np
-
 import urllib3
-from urllib3.exceptions import InsecureRequestWarning
-from urllib3 import disable_warnings
-
 import pyfar as pf
 
-# disable warning about non-certified connection
-disable_warnings(InsecureRequestWarning)
 # path for saving/reading files
 file_dir = os.path.join(os.path.dirname(__file__), 'files')
-if not os.path.isdir(file_dir):
-    os.mkdir(file_dir)
 
 
 def castanets(sampling_rate=44100):
@@ -334,7 +326,11 @@ def head_related_impulse_responses(
     Get HRIRs for specified source positions and sampling rate.
 
     The head-related impulse responses (HRIRs) are taken from the FABIAN
-    database [#]_. They are shortened to 128 samples for convenience.
+    database [#]_. They are shortened to 128 samples for convenience. HRIRs are
+    available on the horizontal plane (elevation equals zero degrees, azimuth
+    angles available between 0 and 360 degrees in steps of two degrees) and
+    median plane (azimuth equals 0 or 180 degrees, elevation angles available
+    between -90 and 90 degrees in steps of two degrees).
 
     .. note ::
 
@@ -345,8 +341,7 @@ def head_related_impulse_responses(
     Parameters
     ----------
     position : list, str, optional
-        The positions for which HRIRs are returned. HRIRs are available on the
-        horizontal and median plane in an angular resolution of 2 degrees.
+        The positions for which HRIRs are returned.
 
         ``'horizontal'``
             Return horizontal plane HRIRs with an angular resolution of 2
@@ -389,26 +384,33 @@ def head_related_impulse_responses(
     # load HRIRs
     hrirs, sources, _ = pf.io.read_sofa(os.path.join(file_dir, files[0]))
 
+    # tolerance in radians for finding source positions. If this tolerance is
+    # exceeded, an error is raised to inform the user
+    tolerance_rad = 0.1 / 180 * np.pi
+
     # get indices of source positions
     if position == "horizontal":
-        idx, _ = sources.find_slice('elevation', 'deg', 0)
+        idx = sources.elevation == 0
     elif position == "median":
-        idx, _ = sources.find_slice('lateral', 'deg', 0)
+        idx = sources.lateral == 0
+        idx = np.where(idx)[0]
         # sort positions according to polar angle
-        polar = sources.get_sph("side", "deg")[idx, 1].flatten()
-        idx = (idx[0][np.argsort(polar)], )
+        polar = sources.polar[idx].flatten()
+        idx = (idx[np.argsort(polar)], )
     else:
         idx = []
         for pos in position:
-            idx_current, _ = sources.find_nearest_sph(
-                pos[0], pos[1], 1.7, distance=0,
-                domain="sph", convention="top_elev", unit="deg")
-            if idx_current:
+            find = pf.Coordinates.from_spherical_elevation(
+                pos[0] / 180 * np.pi, pos[1] / 180 * np.pi, 1.7)
+            idx_current, distance = sources.find_nearest(
+                find, distance_measure='spherical_radians')
+            if distance < tolerance_rad:
                 idx.append(idx_current[0])
             else:
                 raise ValueError((
                     f"HRIR for azimuth={pos[0]} and elevation={pos[1]} degrees"
-                    " is not available. See help for more information."))
+                    " is not available. See documentation for more "
+                    "information."))
 
     # select data for desired source positions
     hrirs.time = hrirs.time[idx]
@@ -486,6 +488,18 @@ def room_impulse_response(sampling_rate=48000):
 def _load_files(data):
     """Download files from Audio Communication Server if they do not exist."""
 
+    # create directory if required
+    if not os.path.isdir(file_dir):
+        # provide verbose error for read-only file systems
+        try:
+            os.mkdir(file_dir)
+        except OSError as error:
+            if 'Read-only' in str(error):
+                raise OSError((f'{data} can not be loaded because the file '
+                               'system is read-only.'))
+            else:
+                raise error
+
     # set the filenames
     if data in ['binaural_room_impulse_response', 'castanets', 'drums',
                 'guitar', 'room_impulse_response']:
@@ -516,7 +530,7 @@ def _load_files(data):
     # download files
     print(f"Loading {data} data. This is only done once.")
 
-    http = urllib3.PoolManager(cert_reqs=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_REQUIRED')
     url = 'https://pyfar.org/wp-content/uploads/pyfar_files/'
 
     for file in files:
