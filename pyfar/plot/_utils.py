@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from pyfar import (Signal, FrequencyData)
-import warnings
 
 
 def _prepare_plot(ax=None, subplots=None):
