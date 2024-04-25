@@ -3,14 +3,14 @@ pyfar
 =====
 
 .. image:: https://badge.fury.io/py/pyfar.svg
-    :target: https://badge.fury.io/py/pyfar
+  :target: https://badge.fury.io/py/pyfar
 .. image:: https://readthedocs.org/projects/pyfar/badge/?version=latest
-    :target: https://pyfar.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+  :target: https://pyfar.readthedocs.io/en/latest/?badge=latest
+  :alt: Documentation Status
 .. image:: https://circleci.com/gh/pyfar/pyfar.svg?style=shield
-    :target: https://circleci.com/gh/pyfar/pyfar
+  :target: https://circleci.com/gh/pyfar/pyfar
 .. image:: https://mybinder.org/badge_logo.svg
-    :target: https://mybinder.org/v2/gh/pyfar/gallery/main?filepath=docs/gallery
+  :target: https://mybinder.org/v2/gh/pyfar/gallery/main?filepath=docs/gallery
 
 
 The python package for acoustics research (pyfar) offers classes to store
