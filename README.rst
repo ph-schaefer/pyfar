@@ -6,7 +6,6 @@ pyfar
   :target: https://badge.fury.io/py/pyfar
 .. image:: https://readthedocs.org/projects/pyfar/badge/?version=latest
   :target: https://pyfar.readthedocs.io/en/latest/?badge=latest
-  :alt: Documentation Status
 .. image:: https://circleci.com/gh/pyfar/pyfar.svg?style=shield
   :target: https://circleci.com/gh/pyfar/pyfar
 .. image:: https://mybinder.org/badge_logo.svg
